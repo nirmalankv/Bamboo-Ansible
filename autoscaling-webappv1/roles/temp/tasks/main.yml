@@ -1,0 +1,27 @@
+---
+
+#Load balancer
+  - name: Create Loadbalance
+    ec2_elb_lb:
+      name: "{{ Vvpc_name }}ELB"
+      state: present
+      connection_draining_timeout: 60
+      idle_timeout: 300
+      cross_az_load_balancing: "yes"
+      region: "{{ Vregion }}"
+      subnets:
+       - "{{ Vwebsn_ida }}"
+       - "{{ Vwebsn_idb }}"
+      listeners:
+       - protocol: http
+         load_balancer_port: 80
+         instance_port: 80
+      health_check:
+         ping_protocol: http # options are http, https, ssl, tcp
+         ping_port: 80
+         ping_path: "/var/www/html/index.html" # not required for tcp or ssl
+         response_timeout: 5 # seconds
+         interval: 60 # seconds
+         unhealthy_threshold: 3
+         healthy_threshold: 5
+...

@@ -1,0 +1,15 @@
+ForwardAgent yes
+
+Host {{ Vbastion_dns }}
+  HostName {{ Vbastion_dns }}
+  User ec2-user
+  Port 22
+  IdentityFile /home/ec2-user/nkv-keypair.pem
+  ControlMaster auto
+  ControlPath ~/.ssh/ansible-%r@%h:%p
+  ControlPersist 5m
+
+Host {{ Vdbec2_ip }}
+  ProxyCommand ssh -W %h:%p {{ Vbastion_dns }}
+  IdentityFile /home/ec2-user/nkv-keypair.pem
+

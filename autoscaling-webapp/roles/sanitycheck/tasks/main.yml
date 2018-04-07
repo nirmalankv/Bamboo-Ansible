@@ -1,0 +1,17 @@
+---
+# tasks file for roles/sanitycheck
+- name: test the ports connectivity
+  wait_for:
+    host: "{{ Velbdns }}" 
+    port: "{{ item }}"
+    state: started         # Port should be open
+    delay: 0               # No wait before first check (sec)
+    timeout: 3             # Stop checking after timeout (sec)
+#  ignore_errors: yes
+  with_items:
+    - '{{ Vportscan }}'
+  register: Rsanity
+  
+- name: test result
+  debug: 
+    msg: "Connectivity test succeded to the endpoint {{ Velbdns }}"

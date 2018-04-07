@@ -1,0 +1,10 @@
+---
+# file: webapp.yml
+
+ - hosts: test
+   become: true
+   user: ec2-user
+   roles:
+    - common
+    - nginx
+...

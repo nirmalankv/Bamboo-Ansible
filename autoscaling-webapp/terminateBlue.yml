@@ -1,0 +1,11 @@
+---
+# file: autoscale.yml test once again
+ - hosts: localhost
+   connection: local
+   gather_facts: false
+   roles:
+    - common
+    - delasg
+...
+
+

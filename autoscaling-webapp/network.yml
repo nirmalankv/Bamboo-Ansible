@@ -1,0 +1,15 @@
+---
+# file: network.yml
+ - hosts: localhost
+   connection: local
+   gather_facts: false
+   vars_prompt:
+    - name: Vvpc_name
+      prompt: "Please Enter VPC Name"
+      private: no
+    - name: Vvpc_cidr
+      prompt: "Please Enter VPC CIDR range(Note* restricted to use the range as  xx.xx.0.0/16)"
+      private: no
+   roles:
+    - common
+    - vpc

@@ -1,0 +1,31 @@
+---
+# file: webappami.yml
+ - hosts: localhost
+   connection: local
+   gather_facts: false
+   roles:
+    - common
+    - webimage
+   tags:
+     - testnginx
+
+ - hosts: nginximage 
+   become: true
+   gather_facts: true
+   vars:
+     Vwebimage: "{{ hostvars['localhost']['Vwebimage_ip'] }}"
+   roles:
+    - common
+    - nginx
+    - adduser
+   tags:
+    - testnginx
+
+ - hosts: localhost
+   connection: local
+   gather_facts: true
+   roles:
+    - common
+    - webami
+...
+

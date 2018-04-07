@@ -1,0 +1,28 @@
+---
+# tasks file for roles/adduser
+
+    - name: Add Group
+      group:
+       name: developer
+       state: present
+
+    - name: Allow  group to have passwordless sudo
+      lineinfile:
+       dest: /etc/sudoers
+       state: present
+       regexp: '^%developer'
+       line: '%developer ALL=(ALL) NOPASSWD: ALL'
+       validate: 'visudo -cf %s'
+
+    - name: Add user
+      user:
+        name: devuser
+        password: '$6$wi7VvZa.BqtbFlt1$9Ka8DJwCzWeWmMApj9dXHmY6sU.Dx49.m9dZCc29JAMdbHqPQkZr2YXv/xgcV4x4DX9r.A/mcLVbVgp9Cn2nD/'
+        update_password: always
+        shell: /bin/bash
+        groups: developer
+        append: yes
+      register: output
+
+    - debug: msg="{{output}}"
+

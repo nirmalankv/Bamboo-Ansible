@@ -1,0 +1,131 @@
+---
+# File: roles/asg/tasks/main.yml
+  - name: Move existing ELB endpoint to BlueDeploy
+    set_fact:
+      Velbdns_blue: "{{ Velbdns }}"
+  
+  - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Velbdns_blue: line='Velbdns_blue: \"{{ Velbdns_blue }}\"'"
+
+
+  - name: Create Loadbalance
+    ec2_elb_lb:
+      name: "{{ Vvpc_name }}ELB{{ Vtestversion}}"
+      state: present
+      connection_draining_timeout: 60
+      idle_timeout: 300
+      security_group_ids: "{{ Vwebsg_id }}"
+      cross_az_load_balancing: "yes"
+      region: "{{ Vregion }}"
+      subnets:
+       - "{{ Vwebsn_ida }}"
+       - "{{ Vwebsn_idb }}"
+      tags: 
+        Name: "{{ Vvpc_name }}web"
+      listeners:
+       - protocol: http
+         load_balancer_port: 80
+         instance_port: 80
+      health_check:
+         ping_protocol: http # options are http, https, ssl, tcp
+         ping_port: 8080
+         ping_path: "/healthcheck.html" # not required for tcp or ssl
+         response_timeout: 15 # seconds
+         interval: 60 # seconds
+         unhealthy_threshold: 3
+         healthy_threshold: 5
+    register: Relb
+
+  - name: Declare variables for ELB endpoints
+    set_fact:
+      Velbdns: "{{ Relb.elb.dns_name }}"
+
+  - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Velbdns: line='Velbdns: \"{{ Velbdns }}\"'"
+
+  - name: Create Launch Configuration
+    ec2_lc:
+      name: "{{ Vvpc_name }}LC{{ Vtestversion}}"
+      image_id: "{{ Vwebami }}"
+      key_name: "{{ Vkey_name }}"
+      security_groups: "{{ Vwebsg_id }}"
+      instance_type: "{{ Vinstance_type }}"
+      region: "{{ Vregion }}"
+      assign_public_ip: yes
+      state: present    
+
+  - name: Create Autoscaling group
+    ec2_asg:
+      name: "{{ Vvpc_name }}ASG{{ Vtestversion}}"
+      launch_config_name: "{{ Vvpc_name }}LC{{ Vtestversion}}"
+      load_balancers: "{{ Vvpc_name }}ELB{{ Vtestversion}}"
+      health_check_period: 60
+      health_check_type: ELB
+      min_size: '{{ Vasg_capacity }}'
+      max_size: 5
+      desired_capacity: '{{ Vasg_capacity }}'
+      vpc_zone_identifier: [ '{{ Vwebsn_ida }}', '{{ Vwebsn_idb }}' ]
+      region: "{{ Vregion }}"
+      state: present
+      tags:
+       - Name: "{{ Vvpc_name }}WEB{{ Vtestversion}}"
+         propagate_at_launch: yes
+
+
+
+  - name: Configure Scaling Policies
+    ec2_scaling_policy:
+      region: "{{ Vregion }}"
+      name: "{{ item.name }}"
+      asg_name: "{{ Vvpc_name }}ASG{{ Vtestversion}}"
+      state: present
+      adjustment_type: "{{ item.adjustment_type }}"
+      min_adjustment_step: "{{ item.min_adjustment_step }}"
+      scaling_adjustment: "{{ item.scaling_adjustment }}"
+      cooldown: "{{ item.cooldown }}"
+    with_items:
+     - name: "Increase Group Size"
+       adjustment_type: "ChangeInCapacity"
+       scaling_adjustment: +1
+       min_adjustment_step: 1
+       cooldown: 180
+     - name: "Decrease Group Size"
+       adjustment_type: "ChangeInCapacity"
+       scaling_adjustment: -1
+       min_adjustment_step: 1
+       cooldown: 300
+    register: Rsp
+
+  - name: Determine Metric Alarm configuration
+    set_fact:
+      metric_alarms:
+       - name: "ScaleUp"
+         comparison: ">="
+         threshold: 70.0
+         alarm_actions:
+          - "{{ Rsp.results[0].arn }}"
+       - name: "ScaleDown"
+         comparison: "<="
+         threshold: 0.0
+         alarm_actions:
+          - "{{ Rsp.results[1].arn }}"
+
+#  - name: Configure Metric Alarms and link to Scaling Policies
+#    ec2_metric_alarm:
+#      region: "{{ Vregion }}"
+#     name: "{{ item.name }}"
+#     state: present
+#     metric: "CPUUtilization"
+#     namespace: "AWS/EC2"
+#     statistic: "Average"
+#     comparison: "{{ item.comparison }}"
+#     threshold: "{{ item.threshold }}"
+#     period: 60
+#     evaluation_periods: 5
+#     unit: "Percent"
+#     dimensions:
+#       AutoScalingGroupName: "{{ Vvpc_name }}ASG"
+#     alarm_actions: "{{ item.alarm_actions }}"
+#   with_items: metric_alarms
+#   register: Rma
+##
+
+...

@@ -1,0 +1,22 @@
+---
+# file: compute.yml
+ - hosts: localhost
+   connection: local
+   gather_facts: false
+   vars_prompt:
+    - name: Vproj_name
+      prompt: "Please Enter Project Name"
+      private: no
+      default: "demo"
+
+    - name: Vweb_count
+      prompt: "Please Enter Web Server Count( eg.1,2..)"
+      private: no
+      default: 2
+   
+
+   roles:
+    - common
+    - ec2
+
+

@@ -1,0 +1,8 @@
+---
+# file: site.yml
+ # - include: network.yml
+  - include: compute.yml
+  - include: dbapp.yml
+  - include: webappami.yml
+  - include: autoscale.yml
+...

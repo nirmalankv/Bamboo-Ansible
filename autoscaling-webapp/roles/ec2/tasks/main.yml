@@ -1,0 +1,108 @@
+---
+#File: roles/natNbastion/tasks/main.yml
+
+# Declaring variables for hostvars
+     - name: Declare project name for proceeding hosts
+       set_fact:
+         Vproj_name: "{{ Vproj_name }}"
+
+# NAT and Bastion host instances
+     - name: Create NAT EC2 and Assign to NAT Subnet RT
+       ec2:
+         image: "{{ Vnat_ami }}"
+         instance_type: "{{ Vinstance_type }}"
+         key_name: "{{ Vkey_name }}"
+         wait: yes
+         group_id: "{{ Vwebsg_id }}"
+         count: 1
+         region: "{{ Vregion }}"
+         vpc_subnet_id: "{{ Vnatsn_id }}"
+         assign_public_ip: "yes"
+         source_dest_check: false
+         instance_tags: { "Name":"{{ Vvpc_name }}-NAT" }
+         state: present
+       register: Rnat
+
+     - name: Set variable for NAT instance id
+       set_fact:
+         Vnatec2_id: "{{ Rnat.instances.0.id }}"
+     - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vnatec2_id line='Vnatec2_id: \"{{ Rnat.instances.0.id }}\"'"
+     - lineinfile: dest='output.txt' regexp=\"{{ Rnat.instances.0.dns_name }}\" insertafter='NAT Public DNS' line=\"{{ Rnat.instances.0.dns_name }}\" state=present
+
+
+#Create Routing table for Private Subnet with NAT gateway
+     - name: Set up NAT protected route table
+       ec2_vpc_route_table:
+         vpc_id: "{{ Vvpc_id }}"
+         region: "{{ Vregion }}"
+         tags: { "Name":"{{ Vvpc_name }}rtnat" }
+         subnets:
+           - "{{ Vdbsn_id }}"
+         routes:
+           - dest: 0.0.0.0/0
+             instance_id: "{{ Vnatec2_id }}"
+       register: Rnat_rt
+
+     - name: Bastion EC2 create
+       ec2:
+         image: "{{ Vami }}"
+         instance_type: "{{ Vinstance_type }}"
+         key_name: "{{ Vkey_name }}"
+         wait: yes
+         group_id: "{{ Vdbsg_id }}"
+         count: 1
+         region: "{{ Vregion }}"
+         vpc_subnet_id: "{{ Vnatsn_id }}"
+         assign_public_ip: "yes"
+         instance_tags: { "Name":"{{ Vvpc_name }}-bastion" }
+         state: present
+       register: Rbastion
+
+
+     - name: Set variable for bastion instance id and dns
+       set_fact:
+         Vbastion_id: "{{ Rbastion.instance_ids }}"
+         Vbastion_dns: "{{ Rbastion.instances.0.dns_name }}"
+
+     - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vbastion_id line='Vbastion_id: \"{{ Rbastion.instance_ids }}\"'"
+     - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vbastion_dns line='Vbastion_dns: \"{{ Rbastion.instances.0.dns_name }}\"'"
+     - lineinfile: dest='output.txt' regexp=\"{{ Rbastion.instances.0.dns_name }}\" insertafter='Bastion Public DNS' line=\"{{ Rbastion.instances.0.dns_name }}\" state=present
+
+
+     - name: Create DB EC2
+       ec2:
+         image: "{{ Vami }}"
+         instance_type: "{{ Vinstance_type }}"
+         key_name: "{{ Vkey_name }}"
+         wait: yes
+         group_id: "{{ Vdbsg_id }}"
+         count: "{{ Vdb_count }}"
+         region: "{{ Vregion }}"
+         vpc_subnet_id: "{{ Vdbsn_id }}"
+         assign_public_ip: "no"
+         instance_tags: { "Name":"{{ Vproj_name }}DB" }
+         state: present
+       register: Rdb
+     - debug: var=Rdb
+
+     - name: Set variables for db instance id and private ip
+       set_fact:
+         Vdbec2_id: "{{ Rdb.instance_ids }}"
+         Vdbec2_ip: "{{ Rdb.instances.0.private_ip }}"
+     - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vdbec2_id line='Vdbec2_id: \"{{ Rdb.instance_ids }}\"'"
+     - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vdbec2_ip line='Vdbec2_ip: \"{{ Rdb.instances.0.private_ip }}\"'"
+     - lineinfile: dest='/etc/ansible/hosts' regexp=\"{{ Rdb.instances.0.private_ip }}\" insertafter='\[as-dbappserver\]' line=\"{{ Rdb.instances.0.private_ip }}\" state=present
+
+     - name: Wait for SSH
+       wait_for:
+         host: "{{ Vbastion_dns }}"
+         port: 22
+         delay: 10
+         timeout: 320
+         state: started
+
+
+     - name: Add hosts db IP to inventory
+       add_host: name={{ Vdbec2_ip }} groups="{{ Vproj_name }}-DBserver"
+
+...

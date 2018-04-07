@@ -1,0 +1,63 @@
+# Variables declaration for VPC-nkv
+Vmgmt_vpc_id: "vpc-77b2160e"
+Vregion: "us-west-2"
+Vvpc_id: "vpc-fa600383"
+Vvpc_name: "demo"
+Vvpc_cidr: "70.0.0.0/16"
+Vsubnet_cidr_pub: "100.0.10.0/24"
+Vsubnet_cidr_pri: "70.0.30.0/24"
+Vsubnet_cidr_nat: "70.0.100.0/24"
+
+Vrt_name_pub: 
+Vrt_name_pri: 
+Vrt_name_nat: 
+Vigw_name: 
+
+#NAT Instance
+Vnat_ami: "ami-290f4119"
+Vnatec2_id: "i-d778e842"
+
+#Bastion Instance
+Vbastion_id: "[u'i-a877e73d']"
+Vbastion_dns: "ec2-54-244-182-101.us-west-2.compute.amazonaws.com"
+
+#ELB
+Velbdns: "demoELB10-673705507.us-west-2.elb.amazonaws.com"
+Velbdns_blue: "demoELB9-1562083053.us-west-2.elb.amazonaws.com"
+Vasg_capacity: 3
+#EC2 and application
+Vami: "ami-768d1a0e"
+Vinstance_type: "t2.micro"
+Vkey_name: "test"
+Vwebec2_name: "testweb"
+Vwebec2_id: "[u'i-4f2c6157']"
+Vwebec2_ip: "54.187.234.90"
+Vwebsg_id: "sg-d6cee9a9"
+Vwebsn_id: "subnet-44899b20"
+   # for asg
+Vwebsn_ida: "subnet-af6093e4"
+Vwebsn_idb: "subnet-9bfe2ee2"
+Vweb_count: "1"
+Vdbec2_name: "testdb"
+Vdbec2_id: "[u'i-2276e6b7']"
+Vdbec2_ip: "98.0.30.50"
+Vdbsg_id: "sg-98cfe8e7"
+Vdbsn_id: "subnet-156b985e"
+Vdb_count: 1
+Vpri_sn_id: 
+Vsubnet_cidr_puba: "70.0.10.0/24"
+Vsubnet_cidr_pubb: "70.0.20.0/24"
+Vnatsn_id: "subnet-08649743"
+
+#web Golden Image instances and AMI
+Vwebimage_id: "i-0d5efc13428153d92"
+Vwebimage_ip: "70.0.10.93"
+Vwebami: "ami-07920f7f"
+Vversion: "6"
+Vtestversion: "10"
+Vportscan: '90'
+Vproj_name: demo
+
+#Access key and secret access key
+Vaccess_key: "AKIAIWNSL23TZAZILP4Q"
+Vsecret_key: "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"

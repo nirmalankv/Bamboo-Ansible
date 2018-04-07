@@ -1,0 +1,34 @@
+---
+
+#NginX webserver with mysql client using ansible
+
+ - name: Install Nginx
+   yum: pkg=nginx state=installed
+   
+ - name: copy nginx conf
+   copy: src=nginx.conf dest='/etc/nginx/nginx.conf'
+
+ - name: Install php
+   yum: pkg={{ item }} state=installed
+   with_items:
+    - php
+    - php-fpm
+    - php-mysql
+    - mysql
+
+   notify:
+    - Start php-fpm
+    - Start Nginx
+
+ - name: define DB ip value
+   set_fact:
+     Vdbec2_ip: "{{ hostvars['localhost']['Vdbec2_ip'] }}"
+   when: "hostvars['localhost']['Vdbec2_ip'] is defined"
+
+ - name: copy web page
+   template: src=index.php dest='/var/www/html/index.php' owner=ec2-user group=ec2-user mode=0644
+
+ - name: copy index.html
+   copy: src=index.html dest='/var/www/html/index.html'
+
+...

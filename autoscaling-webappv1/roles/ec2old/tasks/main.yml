@@ -1,0 +1,194 @@
+---
+# Playbook to provision application
+
+# Variable declaration
+     - name: Set variables for web and db server name
+       lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vwebec2_name line='Vwebec2_name: \"{{ Vwebec2_name }}\"'"
+     - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vdbec2_name line='Vdbec2_name: \"{{ Vdbec2_name }}\"'"
+
+#Security Groups
+
+     - name: Security Group for Web Servers
+       ec2_group:
+         name: websg
+         description: web servers security group
+         vpc_id: "{{ Vvpc_id }}"
+         region: "{{ Vregion }}"
+         rules:
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp
+            from_port: 80
+            to_port: 80
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp
+            from_port: 443
+            to_port: 443
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp
+            from_port: 3306
+            to_port: 3306
+            cidr_ip: 0.0.0.0/0
+       register: Rwebsg
+
+     - name: Set variable for web security group id
+       set_fact:
+         Vwebsg_id: "{{ Rwebsg.group_id }}"
+     - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vwebsg_id line='Vwebsg_id: \"{{ Rwebsg.group_id }}\"'"
+
+
+     - name: Security Group for DB Server
+       ec2_group:
+         name: dbsg
+         description: DB servers security group
+         vpc_id: "{{ Vvpc_id }}"
+         region: "{{ Vregion }}"
+         rules:
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp
+            from_port: 3306
+            to_port: 3306
+            cidr_ip: 0.0.0.0/0
+       register: Rdbsg
+
+     - name: Set variable for db security group id
+       set_fact:
+         Vdbsg_id: "{{ Rdbsg.group_id }}"
+     - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vdbsg_id line='Vdbsg_id: \"{{ Rdbsg.group_id }}\"'"
+
+# NAT and Bastion host instances
+     - name: Create NAT EC2 and Assign to NAT Subnet RT
+       ec2:
+         image: "{{ Vnat_ami }}"
+         instance_type: "{{ Vinstance_type }}"
+         key_name: "{{ Vkey_name }}"
+         wait: yes
+         group_id: "{{ Rwebsg.group_id }}"
+         count: 1
+         region: "{{ Vregion }}"
+         vpc_subnet_id: "{{ Vwebsn_id }}"
+         assign_public_ip: "yes"
+         source_dest_check: false
+         instance_tags: { "Name":"{{ Vdbec2_name }}-NAT" }
+         state: present
+       register: Rnat
+
+     - name: Set variable for NAT instance id
+       set_fact:
+         Vnatec2_id: "{{ Rnat.instances.0.id }}"
+     - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vnatec2_id line='Vnatec2_id: \"{{ Rnat.instances.0.id }}\"'"
+     - lineinfile: dest='output.txt' regexp=\"{{ Rnat.instances.0.dns_name }}\" insertafter='NAT Public DNS' line=\"{{ Rnat.instances.0.dns_name }}\" state=present
+
+#Create Routing table for Private Subnet with NAT gateway
+     - name: Set up NAT protected route table
+       ec2_vpc_route_table:
+         vpc_id: "{{ Vvpc_id }}"
+         region: "{{ Vregion }}"
+         tags: { "Name":"{{ Vdbec2_name }}rtnat" }
+         subnets:
+           - "{{ Vdbsn_id }}"
+         routes:
+           - dest: 0.0.0.0/0
+             instance_id: "{{ Rnat.instances.0.id }}"
+       register: Rnat_rt
+
+     - name: Bastion EC2 create
+       ec2:
+         image: "{{ Vami }}"
+         instance_type: "{{ Vinstance_type }}"
+         key_name: "{{ Vkey_name }}"
+         wait: yes
+         group_id: "{{ Rdbsg.group_id }}"
+         count: 1
+         region: "{{ Vregion }}"
+         vpc_subnet_id: "{{ Vwebsn_id }}"
+         assign_public_ip: "yes"
+         instance_tags: { "Name":"{{ Vdbec2_name }}-bastion" }
+         state: present
+       register: Rbastion
+
+     - name: Set variable for bastion instance id and dns
+       set_fact:
+         Vbastion_id: "{{ Rbastion.instance_ids }}"
+         Vbastion_dns: "{{ Rbastion.instances.0.dns_name }}"
+
+     - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vbastion_id line='Vbastion_id: \"{{ Rbastion.instance_ids }}\"'"
+     - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vbastion_dns line='Vbastion_dns: \"{{ Rbastion.instances.0.dns_name }}\"'"
+     - lineinfile: dest='output.txt' regexp=\"{{ Rbastion.instances.0.dns_name }}\" insertafter='Bastion Public DNS' line=\"{{ Rbastion.instances.0.dns_name }}\" state=present
+
+#Provision WEB and DB instances
+
+     - name: Create Web EC2
+       ec2: 
+         image: "{{ Vami }}"
+         instance_type: "{{ Vinstance_type }}"
+         key_name: "{{ Vkey_name }}"
+         wait: yes
+         group_id: "{{ Rwebsg.group_id }}"
+         count: "{{ Vweb_count }}"
+         region: "{{ Vregion }}"
+         vpc_subnet_id: "{{ Vwebsn_id }}"
+         assign_public_ip: "yes"
+         instance_tags: { "Name":"{{ Vwebec2_name }}" }
+         state: present
+       register: Rweb
+     - debug: var=Rweb
+
+     - name: Set Variable for web instance id and public ip
+       set_fact:
+         Vwebec2_id: "{{ Rweb.instance_ids }}"
+         Vwebec2_ip: "{{ Rweb.instances.0.public_ip }}"
+     - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vwebec2_id line='Vwebec2_id: \"{{ Rweb.instance_ids }}\"'"
+     - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vwebec2_ip line='Vwebec2_ip: \"{{ Rweb.instances.0.public_ip }}\"'"
+     - lineinfile: dest='/etc/ansible/hosts' regexp=\"{{ Rweb.instances.0.public_ip }}\" insertafter='\[as-webappserver\]' line=\"{{ Rweb.instances.0.public_ip }}\" state=present
+     - lineinfile: dest='output.txt' regexp=\"{{ Rweb.instances.0.public_ip }}\" insertafter='Webserver Public IP' line=\"{{ Rweb.instances.0.public_ip }}\" state=present
+
+     - name: Create DB EC2
+       ec2:
+         image: "{{ Vami }}"
+         instance_type: "{{ Vinstance_type }}"
+         key_name: "{{ Vkey_name }}"
+         wait: yes
+         group_id: "{{ Rdbsg.group_id }}"
+         count: "{{ Vdb_count }}"
+         region: "{{ Vregion }}"
+         vpc_subnet_id: "{{ Vdbsn_id }}"
+         assign_public_ip: "no"
+         instance_tags: { "Name":"{{ Vdbec2_name }}" }
+         state: present
+       register: Rdb
+     - debug: var=Rdb
+
+     - name: Set variables for db instance id and private ip
+       set_fact:
+         Vdbec2_id: "{{ Rdb.instance_ids }}"
+         Vdbec2_ip: "{{ Rdb.instances.0.private_ip }}"
+     - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vdbec2_id line='Vdbec2_id: \"{{ Rdb.instance_ids }}\"'"
+     - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vdbec2_ip line='Vdbec2_ip: \"{{ Rdb.instances.0.private_ip }}\"'"
+     - lineinfile: dest='/etc/ansible/hosts' regexp=\"{{ Rdb.instances.0.private_ip }}\" insertafter='\[as-dbappserver\]' line=\"{{ Rdb.instances.0.private_ip }}\" state=present
+
+     - name: Wait for SSH
+       wait_for:
+         host: "{{ Vbastion_dns }}"
+         port: 22
+         delay: 10
+         timeout: 320
+         state: started
+      
+     - name: Add hosts db IP to inventory
+       add_host: name={{ Vdbec2_ip }} groups="as-dbappserver"
+
+     - name: Add hosts web IP to inventory
+       add_host: name={{ Vwebec2_ip }} groups="as-webappserver"
+     
+    # - name: flush the handlers
+    #   meta: flush_handlers  
+     - name: Pause for a minutes
+       pause: minutes=1
+...
+ 

@@ -1,0 +1,11 @@
+---
+# file: compute.yml
+ - hosts: localhost
+   connection: local
+   gather_facts: false
+   become: true
+   roles:
+    - common
+    - temp2
+
+

@@ -1,0 +1,47 @@
+---
+# tasks file for roles/webami
+
+
+ - name: Declare variables for webami version
+   set_fact:
+     Vversion: 6
+     Vtestversion: '{{ Vtestversion |int  + 1 }}'
+
+# Create web app AMI
+ - name: Create AMI of nginx web server
+   ec2_ami:
+     instance_id: "{{ Vwebimage_id }}"
+     wait: yes
+     name: "nginxAMI{{ Vtestversion }}"
+     region: "{{ Vregion }}"
+   register: Rwebami
+ - debug: var=Rwebami
+
+
+ - name: Declare variables for webami
+   set_fact:
+     Vwebami: "{{ Rwebami.image_id }}"
+
+ - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vwebami line='Vwebami: \"{{ Vwebami }}\"'"  
+ - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vversion line='Vversion: \"{{ Vversion }}\"'"
+ - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vtestversion line='Vtestversion: \"{{ Vtestversion }}\"'"
+
+# Terminate nginx base image instance
+
+ - name: terminate Web instances for golden image
+   ec2:
+     image: "{{ Vami }}"
+     instance_ids: "{{ Vwebimage_id }}"
+     instance_type: "{{ Vinstance_type }}"
+     key_name: "{{ Vkey_name }}"
+     group_id: "{{ Vwebsg_id }}"
+     count: 1
+     region: "{{ Vregion }}"
+     vpc_subnet_id: "{{ Vwebsn_ida }}"
+     assign_public_ip: "yes"
+     instance_tags: { "Name":"nginx-base" }
+     state: absent
+     wait: yes
+   register: Rwebimage
+ - debug: var=Rwebimage
+...

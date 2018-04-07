@@ -1,0 +1,27 @@
+# Test the Async feature in Ansible
+ - name: sample command playbook
+   hosts: localhost
+   connection: local
+   gather_facts: false
+   tasks:
+     - name: sample command
+       shell: 'sleep {{item}} ; echo hi{{item}}'
+       async: 100
+       poll: 0
+       register: output
+       with_items:
+         - [ 20, 10, 30]
+     - name: Check sync status
+       async_status:
+        jid: "{{ item.ansible_job_id }}"
+       delay: 5  # Check every 5 seconds. Adjust as you like.
+       retries: 10  # Retry up to 10 times. Adjust as needed.
+       with_items:
+         - "{{ output.results }}"
+       register: status
+       until: status.finished
+
+     - debug: msg="{{ item.stdout}}"
+       with_items:
+          - "{{status.results}}"
+  

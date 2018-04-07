@@ -1,0 +1,43 @@
+---
+# Playbook to provision application
+
+#Provision WEB  instances
+
+     - name: Create Web instances for golden image
+       ec2: 
+         image: "{{ Vami }}"
+         instance_type: "{{ Vinstance_type }}"
+         key_name: "{{ Vkey_name }}"
+         group_id: "{{ Vwebsg_id }}"
+         count: 1
+         region: "{{ Vregion }}"
+         vpc_subnet_id: "{{ Vwebsn_ida }}"
+         assign_public_ip: "yes"
+         instance_tags: { "Name":"nginx-base" }
+         state: present
+         wait: yes
+       register: Rwebimage
+     - debug: var=Rwebimage
+
+     - name: Set Variable for web instance id and public ip
+       set_fact:
+         Vwebimage_id: "{{ Rwebimage.instances.0.id }}"
+         Vwebimage_ip: "{{ Rwebimage.instances.0.public_ip }}"
+     - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vwebimage_id line='Vwebimage_id: \"{{ Vwebimage_id }}\"'"
+     - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vwebimage_ip line='Vwebimage_ip: \"{{ Vwebimage_ip }}\"'"
+
+     - name: Wait for SSH
+       wait_for:
+         host: "{{ Vwebimage_ip }}"
+         port: 22
+         delay: 10
+         timeout: 320
+         state: started
+      
+     - name: refresh inventory
+       local_action: command hosts/ec2.py --refresh-cache
+      
+     - name: cooling period to initiate configuration
+       pause: minutes=1
+...
+ 

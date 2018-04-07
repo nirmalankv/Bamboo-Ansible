@@ -1,0 +1,9 @@
+---
+# file: webapp.yml
+
+ - hosts: tag_Name_nginx_base
+   become: true
+   roles:
+    - common
+    - nginx
+...

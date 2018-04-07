@@ -1,0 +1,10 @@
+---
+# file: webappami.yml
+ - hosts: localhost
+   connection: local
+   gather_facts: false
+   roles:
+    - common
+    - webimage
+...
+

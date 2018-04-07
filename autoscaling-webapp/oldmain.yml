@@ -1,0 +1,65 @@
+---
+# File network/tasks/main.yml
+
+#Variable declarations
+
+  #Adding variable for playing the application playbook at same time of infra provisional playbook
+    - set_fact:
+        Vvpc_name: "{{ Vvpcname }}"
+        Vvpc_cidr: "{{ Vvpccidr }}"
+        Vsubnet_cidr_pub: "{{ Vsubnetcidrpub }}"
+        Vsubnet_cidr_pri: "{{ Vsubnetcidrpri }}"
+
+  #Adding variable for playing the application playbook later from infra provisional playbook
+    - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vvpc_name line='Vvpc_name: \"{{ Vvpcname }}\"'"
+    - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vvpc_cidr line='Vvpc_cidr: \"{{ Vvpccidr }}\"'"
+    - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vsubnet_cidr_pub line='Vsubnet_cidr_pub: \"{{ Vsubnetcidrpub }}\"'"
+    - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vsubnet_cidr_pri line='Vsubnet_cidr_pri: \"{{ Vsubnetcidrpri }}\"'"
+
+# Playbook to Create VPC
+    - name: Create VPC
+      ec2_vpc:
+         state: present
+         cidr_block: "{{ Vvpc_cidr }}"
+         resource_tags: { "Name":"{{ Vvpc_name }}" }
+         subnets:
+           - cidr: "{{ Vsubnet_cidr_pub }}"
+             az: "{{ Vregion }}a"
+             resource_tags: { "Name":"{{ Vvpc_name }}-pub" }
+           - cidr: "{{ Vsubnet_cidr_pri }}"
+             az: "{{ Vregion }}a"
+             resource_tags: { "Name":"{{ Vvpc_name }}-pri" }
+         internet_gateway: True
+         route_tables:
+           - subnets:
+              - "{{ Vsubnet_cidr_pub }}"
+             routes:
+              - dest: 0.0.0.0/0      
+                gw: igw
+             resource_tags: { "Name":"{{ Vvpc_name }}rtpub" }      
+         region: "{{ Vregion }}"
+      register: Rvpc
+    - set_fact:
+        Vvpc_id: "{{ Rvpc.vpc.id }}"
+    - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vvpc_id line='Vvpc_id: \"{{ Rvpc.vpc.id }}\"'"
+    
+    - name: Gather Web Subnet Id
+      ec2_vpc_subnet_facts:
+        filters:
+          "tag:Name": "{{ Vvpc_name }}-pub"
+        region: "{{ Vregion }}"
+      register: Rwebsn
+    - set_fact:
+        Vwebsn_id: "{{ Rwebsn.subnets.0.id }}"
+    - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vwebsn_id line='Vwebsn_id: \"{{ Rwebsn.subnets.0.id }}\"'"
+
+    - name: Gather DB Subnet Id
+      ec2_vpc_subnet_facts:
+        filters:
+          "tag:Name": "{{ Vvpc_name }}-pri"
+        region: "{{ Vregion }}"
+      register: Rdbsn
+    - set_fact:
+        Vdbsn_id: "{{ Rdbsn.subnets.0.id }}"
+    - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vdbsn_id line='Vdbsn_id: \"{{ Rdbsn.subnets.0.id }}\"'"
+...

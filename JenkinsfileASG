@@ -1,0 +1,28 @@
+pipeline {
+    agent { label 'AnsibleServer' }
+stages {
+    stage('Get Git repo'){
+        steps {
+        git 'https://github.com/nirmalankv/Ansible.git'
+    }
+    }
+    stage('SamplePlay') {
+       steps {
+        ansiblePlaybook( 
+        playbook: 'autoscaling-webapp/autoscale.yml',
+        inventory: 'hosts', 
+        credentialsId: 'nirmalan_keypair.pem', 
+        extras: '-e Venv="dev"')  
+       }
+    }
+    stage('Testagain') {
+       steps {
+        ansiblePlaybook( 
+        playbook: 'playbooks/test2.yml',
+        inventory: 'hosts', 
+        credentialsId: 'nirmalan_keypair.pem', 
+        extras: '-e Venv="dev"')  
+       }
+    }
+}
+}

@@ -1,0 +1,21 @@
+---
+# file: dbapp.yml
+
+# ssh tunnelling
+ - hosts: localhost
+   connection: local
+   gather_facts: false
+   roles:
+    - common
+    - sshtunnel
+
+# mysql database
+ - hosts: tag_Name_demoDB
+   become: true
+   vars:
+     Vproj_name: "{{ hostvars['localhost']['Vproj_name'] }}"
+   roles:
+    - common
+    - mysql
+...
+

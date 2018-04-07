@@ -1,0 +1,22 @@
+---
+ - name: Create VPC peering
+   ec2_vpc_peer:
+     region: "{{ Vregion }}"
+     vpc_id: "{{ Vvpc_id }}"
+     peer_vpc_id: "{{ Vmgmt_vpc_id }}"
+     state: present
+     tags:
+       Name: Peer-mgmt-VPC
+   register: Rvpcpeer
+ - debug: var=Rvpcpeer
+
+ - name: Accept local VPC peering request
+   ec2_vpc_peer:
+     region: "{{ Vregion }}"
+     peering_id: "{{ Rvpcpeer.peering_id }}"
+     state: accept
+     tags:
+       Name: Peer-mgmt-VPC
+   register: Rvpcaccept
+
+

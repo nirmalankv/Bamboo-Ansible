@@ -1,0 +1,38 @@
+---
+#File roles/mysql/tasks/main.yml
+    - name: Install mysql and Python-MySQL
+      yum:
+        name={{ item }}
+        state='installed'
+      with_items:
+       - 'mysql-server'
+       - 'MySQL-python27.x86_64'
+
+    - name: MySQL server service
+      action: service name=mysqld state=started
+
+    - name: set db root password
+      command: mysqladmin -u root password root123
+      ignore_errors: yes
+
+    - name: add database
+      mysql_db:
+        name=employeedb
+        state=present
+        login_user=root
+        login_password=root123
+      ignore_errors: yes
+
+    - name: add dbuser
+      mysql_user:
+        name=dbuser
+        password='dbuser123'
+        host='%'
+        priv=*.*:ALL
+        state=present
+        login_user=root
+        login_password=root123
+      ignore_errors: yes
+      notify:
+       - Restart MySQL Server
+...

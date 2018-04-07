@@ -1,0 +1,7 @@
+---
+# file: site.yml
+  - include: webec2.yml
+  #- local_action: command 'host/ec2.py --refresh-cache'
+  - include: webapp.yml
+  - include: webami.yml
+...

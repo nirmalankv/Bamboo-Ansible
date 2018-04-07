@@ -1,0 +1,11 @@
+---
+# file: compute.yml
+
+ - hosts: localhost
+   user: ec2-user
+   connection: local
+   gather_facts: false
+   tasks:
+      - ping:
+   
+      

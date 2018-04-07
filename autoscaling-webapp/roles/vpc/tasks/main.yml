@@ -1,0 +1,172 @@
+---
+# File network/tasks/main.yml
+
+
+ #Adding variable for playing the application playbook at same time of infra provisional playbook
+    - name: Set variables for vpcname and cidr ranges
+      set_fact:
+         Vvpc_name: "{{ Vvpc_name }}"
+         Vsubnet_cidr_puba: "{{ Vvpc_cidr.replace('0.0/16','10.0/24') }}"
+         Vsubnet_cidr_pubb: "{{ Vvpc_cidr.replace('0.0/16','20.0/24') }}"
+         Vsubnet_cidr_pri: "{{ Vvpc_cidr.replace('0.0/16','30.0/24') }}"
+         Vsubnet_cidr_nat: "{{ Vvpc_cidr.replace('0.0/16','100.0/24') }}" 
+    - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vvpc_name line='Vvpc_name: \"{{ Vvpc_name }}\"'"
+    - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vvpc_cidr line='Vvpc_cidr: \"{{ Vvpc_cidr }}\"'"
+    - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vsubnet_cidr_puba line='Vsubnet_cidr_puba: \"{{ Vsubnet_cidr_puba }}\"'"
+    - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vsubnet_cidr_pubb line='Vsubnet_cidr_pubb: \"{{ Vsubnet_cidr_pubb }}\"'"
+    - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vsubnet_cidr_pri line='Vsubnet_cidr_pri: \"{{ Vsubnet_cidr_pri }}\"'"
+    - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vsubnet_cidr_nat line='Vsubnet_cidr_nat: \"{{ Vsubnet_cidr_nat }}\"'"
+# Playbook to Create VPC
+    - name: Create VPC
+      ec2_vpc:
+         state: present
+         cidr_block: "{{ Vvpc_cidr }}"
+         resource_tags: { "Name":"{{ Vvpc_name }}" }
+         subnets:
+           - cidr: "{{ Vsubnet_cidr_puba }}"
+             az: "{{ Vregion }}a"
+             resource_tags: { "Name":"{{ Vvpc_name }}-puba" }
+           - cidr: "{{ Vsubnet_cidr_pubb }}"
+             az: "{{ Vregion }}b"
+             resource_tags: { "Name":"{{ Vvpc_name }}-pubb" }
+           - cidr: "{{ Vsubnet_cidr_pri }}"
+             az: "{{ Vregion }}a"
+             resource_tags: { "Name":"{{ Vvpc_name }}-pri" }
+           - cidr: "{{ Vsubnet_cidr_nat }}"
+             az: "{{ Vregion }}a"
+             resource_tags: { "Name":"{{ Vvpc_name }}-nat" }
+         wait: yes
+         internet_gateway: True
+         route_tables:
+           - subnets:
+              - "{{ Vsubnet_cidr_puba }}"
+              - "{{ Vsubnet_cidr_pubb }}"
+              - "{{ Vsubnet_cidr_nat }}"
+             routes:
+              - dest: 0.0.0.0/0      
+                gw: igw
+             resource_tags: { "Name":"{{ Vvpc_name }}rtpub" }      
+         region: "{{ Vregion }}"
+         wait: yes
+      register: "Rvpc"
+
+    - name: Set vpc id variables
+      set_fact:
+         Vvpc_id: "{{ Rvpc.vpc.id }}"
+         
+    - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vvpc_id line='Vvpc_id: \"{{ Rvpc.vpc.id }}\"'"
+    
+    - name: Gather Web Subnet Id
+      ec2_vpc_subnet_facts:
+         filters:
+           "tag:Name": "{{ Vvpc_name }}-pub*"
+         region: "{{ Vregion }}"
+      register: Rwebsn
+
+    - name: Set web subnet id variables
+      set_fact:
+         Vwebsn_ida: "{{ Rwebsn.subnets.0.id }}"
+         Vwebsn_idb: "{{ Rwebsn.subnets.1.id }}"
+    - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vwebsn_ida line='Vwebsn_ida: \"{{ Rwebsn.subnets.0.id }}\"'"
+    - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vwebsn_idb line='Vwebsn_idb: \"{{ Rwebsn.subnets.1.id }}\"'"
+    - name: Gather DB Subnet Id
+      ec2_vpc_subnet_facts:
+         filters:
+           "tag:Name": "{{ Vvpc_name }}-pri"
+         region: "{{ Vregion }}"
+      register: Rdbsn
+
+    - name: Set db subnet id variables
+      set_fact:
+         Vdbsn_id: "{{ Rdbsn.subnets.0.id }}"
+    - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vdbsn_id line='Vdbsn_id: \"{{ Rdbsn.subnets.0.id }}\"'"
+
+
+    - name: Gather NAT Subnet Id
+      ec2_vpc_subnet_facts:
+         filters:
+           "tag:Name": "{{ Vvpc_name }}-nat"
+         region: "{{ Vregion }}"
+      register: Rnatsn
+
+    - name: Set NAT subnet id variables
+      set_fact:
+         Vnatsn_id: "{{ Rnatsn.subnets.0.id }}"
+    - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vnatsn_id line='Vnatsn_id: \"{{ Rnatsn.subnets.0.id }}\"'"
+
+
+#Security Groups
+    - name: Security Group for Web Servers
+      ec2_group:
+        name: websg
+        description: web servers security group
+        vpc_id: "{{ Vvpc_id }}"
+        region: "{{ Vregion }}"
+        rules:
+         - proto: tcp
+           from_port: 22
+           to_port: 22
+           cidr_ip: 0.0.0.0/0
+         - proto: tcp
+           from_port: 80
+           to_port: 80
+           cidr_ip: 0.0.0.0/0
+         - proto: tcp
+           from_port: 443
+           to_port: 443
+           cidr_ip: 0.0.0.0/0
+         - proto: tcp
+           from_port: 3306
+           to_port: 3306
+           cidr_ip: 0.0.0.0/0
+      register: Rwebsg
+
+    - name: Set variable for web security group id
+      set_fact:
+        Vwebsg_id: "{{ Rwebsg.group_id }}"
+    - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vwebsg_id line='Vwebsg_id: \"{{ Rwebsg.group_id }}\"'"
+
+
+
+    - name: Security Group for DB Server
+      ec2_group:
+        name: dbsg
+        description: DB servers security group
+        vpc_id: "{{ Vvpc_id }}"
+        region: "{{ Vregion }}"
+        rules:
+         - proto: tcp
+           from_port: 22
+           to_port: 22
+           cidr_ip: 0.0.0.0/0
+         - proto: tcp
+           from_port: 3306
+           to_port: 3306
+           cidr_ip: 0.0.0.0/0
+      register: Rdbsg
+
+    - name: Set variable for db security group id
+      set_fact:
+        Vdbsg_id: "{{ Rdbsg.group_id }}"
+    - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vdbsg_id line='Vdbsg_id: \"{{ Rdbsg.group_id }}\"'"
+
+    - name: Create VPC peering
+      ec2_vpc_peer:
+        region: "{{ Vregion }}"
+        vpc_id: "{{ Vvpc_id }}"
+        peer_vpc_id: "{{ Vmgmt_vpc_id }}" 
+        state: present
+        tags:
+          Name: Peering to Management VPC
+      register: Rvpcpeer
+
+    - name: Accept local VPC peering request
+      ec2_vpc_peer:
+        region: "{{ Vregion }}"
+        peering_id: "{{ Rvpcpeer.peering_id }}"
+        tags:
+          Name: Peering to Management VPC
+        state: accept
+      register: action_peer
+
+...

@@ -1,0 +1,9 @@
+---
+#file : nginx/handlers/main.yml
+
+ - name: Start Nginx
+   service: name=nginx state=reloaded enabled=yes
+
+ - name: Start php-fpm
+   service: name=php-fpm state=restarted enabled=yes
+...

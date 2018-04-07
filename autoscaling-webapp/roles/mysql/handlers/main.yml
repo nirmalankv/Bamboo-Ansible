@@ -1,0 +1,5 @@
+---
+#file: /mysql/handlers/main.yml
+ - name: Restart MySQL Server
+   service: name=mysqld state=restarted enabled=yes
+...

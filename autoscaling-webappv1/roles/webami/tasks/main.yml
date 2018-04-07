@@ -1,0 +1,26 @@
+---
+# FIle: /roles/webami/tasks/main.yml
+
+ - name: Declare variables for webami version
+   set_fact:
+     Vversion: 6
+
+# Create web app AMI
+ - name: Create AMI of nginx web server
+   ec2_ami:
+     instance_id: "{{ Vwebimage_id }}"
+     wait: yes
+     name: "nginxAMI{{ Vversion }}"
+     region: "{{ Vregion }}"
+   register: Rwebami
+ - debug: var=Rwebami
+
+
+ - name: Declare variables for webami
+   set_fact:
+     Vwebami: "{{ Rwebami.image_id }}"
+
+ - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vwebami line='Vwebami: \"{{ Vwebami }}\"'"  
+ - lineinfile: "dest=roles/common/defaults/main.yml regexp=^Vversion line='Vversion: \"{{ Vversion }}\"'"
+...
+ 

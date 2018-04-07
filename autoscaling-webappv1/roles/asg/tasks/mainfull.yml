@@ -1,0 +1,106 @@
+---
+# File: roles/asg/tasks/main.yml
+  - name: Create Loadbalance
+    ec2_elb_lb:
+      name: "{{ Vvpc_name }}ELB"
+      state: present
+      connection_draining_timeout: 60
+      idle_timeout: 300
+      security_group_ids: "{{ Vwebsg_id }}"
+      cross_az_load_balancing: "yes"
+      region: "{{ Vregion }}"
+      subnets:
+       - "{{ Vwebsn_ida }}"
+       - "{{ Vwebsn_idb }}"
+      instance_ids:
+       - i-cecc5c5b
+      tags: 
+        Name: "{{ Vvpc_name }}web"
+      listeners:
+       - protocol: http
+         load_balancer_port: 80
+         instance_port: 80
+      health_check:
+         ping_protocol: http # options are http, https, ssl, tcp
+         ping_port: 80
+         ping_path: "/index.html" # not required for tcp or ssl
+         response_timeout: 15 # seconds
+         interval: 60 # seconds
+         unhealthy_threshold: 3
+         healthy_threshold: 5
+...
+
+: '
+  - name: Create Launch Configuration
+    ec2_lc:
+      name: "{{ Vvpc_name }}LC"
+      image_id: "{{ Vwebami }}"
+      key_name: "{{ Vkey_name }}"
+      security_groups: "{{ Vwebsg_id }}"
+      instance_type: "{{ Vinstance_type }}"
+      region: "{{ Vregion }}"
+      assign_public_ip: yes
+      state: present    
+
+  - name: Create Autoscaling group
+    ec2_asg:
+      name: "{{ Vvpc_name }}ASG"
+      launch_config_name: "{{ Vvpc_name }}LC"
+      load_balancers: "{{ Vvpc_name }}ELB"
+      health_check_period: 60
+      health_check_type: ELB
+      min_size: 2
+      max_size: 5
+      desired_capacity: 2
+      vpc_zone_identifier: [ '{{ Vwebsn_ida }}', '{{ Vwebsn_idb }}' ]
+      region: "{{ Vregion }}"
+      state: present
+
+
+  - name: Configure Scaling Policies
+    ec2_scaling_policy:
+      region: "{{ Vregion }}"
+      name: "Increase Group Size"
+      asg_name: "{{ Vvpc_name }}ASG"
+      state: present
+      adjustment_type: "ChangeInCapacity"
+      min_adjustment_step: +1
+      scaling_adjustment: 1
+      cooldown: 300
+    register: "Rsp"
+  - debug: var=Rsp.results[0].arn
+#  - name: Determine Metric Alarm configuration
+#    set_fact:
+#      metric_alarms:
+#        - name: "{{ Vvpc_name }}ASG-ScaleUp"
+#          comparison: ">="
+#          threshold: 50.0
+#          alarm_actions:
+#            - "{{ Rsp.results[0].arn }}"
+#
+#
+#        - name: "{{ Vvpc_name }}ASG-ScaleDown"
+#          comparison: "<"
+#          threshold: 0.0
+#          alarm_actions:
+#            - "{{ Rsp.results[1].arn }}"
+
+  - name: Configure Metric Alarms and link to Scaling Policies
+    ec2_metric_alarm:
+      region: "{{ Vregion }}"
+      name: "ScaleUp"
+      state: present
+      metric: "CPUUtilization"
+      namespace: "AWS/EC2"
+      statistic: "Average"
+      comparison: ">="
+      threshold: 50
+      period: 60
+      evaluation_periods: 5
+      unit: "Percent"
+      dimensions:
+         AutoScalingGroupName: "{{ Vvpc_name }}ASG"
+      alarm_actions: "{{ Rsp.results[0].arn }}"
+    register: "Rma"
+
+'

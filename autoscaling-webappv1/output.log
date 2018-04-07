@@ -1,0 +1,5 @@
+Using /etc/ansible/ansible.cfg as config file
+
+PLAYBOOK: network.yml **********************************************************
+1 plays in network.yml
+Please Enter VPC Name: 

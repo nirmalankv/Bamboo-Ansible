@@ -1,0 +1,55 @@
+---
+# File: roles/delasg/tasks/main.yml
+  - name: Delete Autoscaling group
+    ec2_asg:
+      name: "{{ Vvpc_name }}ASG{{Vtestversion |int - 1 }}"
+      launch_config_name: "{{ Vvpc_name }}LC{{Vtestversion |int - 1 }}"
+      load_balancers: "{{ Vvpc_name }}ELB{{Vtestversion |int - 1 }}"
+      health_check_period: 60
+      health_check_type: ELB
+      min_size: 3
+      max_size: 5
+      desired_capacity: 3
+      vpc_zone_identifier: [ '{{ Vwebsn_ida }}', '{{ Vwebsn_idb }}' ]
+      region: "{{ Vregion }}"
+      state: absent
+
+  - name: Delete Launch Configuration
+    ec2_lc:
+      name: "{{ Vvpc_name }}LC{{Vtestversion |int - 1 }}"
+      image_id: "{{ Vwebami }}"
+      key_name: "{{ Vkey_name }}"
+      security_groups: "{{ Vwebsg_id }}"
+      instance_type: "{{ Vinstance_type }}"
+      region: "{{ Vregion }}"
+      assign_public_ip: yes
+      state: absent
+
+  - name: Delete Loadbalance
+    ec2_elb_lb:
+      name: "{{ Vvpc_name }}ELB{{Vtestversion |int - 1 }}"
+      state: absent
+      connection_draining_timeout: 60
+      idle_timeout: 300
+      security_group_ids: "{{ Vwebsg_id }}"
+      cross_az_load_balancing: "yes"
+      region: "{{ Vregion }}"
+      subnets:
+       - "{{ Vwebsn_ida }}"
+       - "{{ Vwebsn_idb }}"
+      tags:
+        Name: "{{ Vvpc_name }}web"
+      listeners:
+       - protocol: http
+         load_balancer_port: 80
+         instance_port: 80
+      health_check:
+         ping_protocol: http # options are http, https, ssl, tcp
+         ping_port: 80
+         ping_path: "/index.html" # not required for tcp or ssl
+         response_timeout: 15 # seconds
+         interval: 60 # seconds
+         unhealthy_threshold: 3
+         healthy_threshold: 5
+
+...
