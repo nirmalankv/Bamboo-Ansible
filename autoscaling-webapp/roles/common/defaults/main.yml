@@ -57,7 +57,3 @@ Vversion: "6"
 Vtestversion: "10"
 Vportscan: '90'
 Vproj_name: demo
-
-#Access key and secret access key
-Vaccess_key: "AKIAIWNSL23TZAZILP4Q"
-Vsecret_key: "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"
