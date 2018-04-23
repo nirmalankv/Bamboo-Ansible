@@ -5,8 +5,6 @@
 
      - name: Create Web instances for golden image
        ec2: 
-#         aws_access_key: "{{ Vaccess_key }}"
-#         aws_secret_key: "{{ Vsecret_key }}"
          image: "{{ Vami }}"
          instance_type: "{{ Vinstance_type }}"
          key_name: "{{ Vkey_name }}"
