@@ -28,7 +28,7 @@ Vasg_capacity: 3
 #EC2 and application
 Vami: "ami-768d1a0e"
 Vinstance_type: "t2.micro"
-Vkey_name: "test"
+Vkey_name: "nirmalan_keypair"
 Vwebec2_name: "testweb"
 Vwebec2_id: "[u'i-4f2c6157']"
 Vwebec2_ip: "54.187.234.90"
